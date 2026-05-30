@@ -1,6 +1,9 @@
 package com.example.apigateway.filter;
 
 import com.example.apigateway.security.JwtService;
+
+import io.jsonwebtoken.Claims;
+
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpHeaders;
@@ -51,8 +54,22 @@ public class JwtAuthenticationFilter implements GlobalFilter {
         if (!valid) {
             return onError(exchange, "Invalid token");
         }
+        
+        Claims claims = jwtService.extractClaims(token);
 
-        return chain.filter(exchange);
+        String username = claims.getSubject();
+
+        String role = claims.get("role", String.class);
+
+        ServerWebExchange modifiedExchange =
+                exchange.mutate()
+                        .request(r -> r
+                                .header("X-User", username)
+                                .header("X-Role", role)
+                        )
+                        .build();
+
+        return chain.filter(modifiedExchange);
     }
 
     private Mono<Void> onError(ServerWebExchange exchange,
